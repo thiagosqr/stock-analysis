@@ -1,7 +1,6 @@
 package com.github.thiagosqr;
 
 import com.google.common.base.Preconditions;
-import javaslang.control.Try;
 import org.apache.spark.SparkConf;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -11,6 +10,7 @@ import org.glassfish.jersey.client.rx.RxInvocationBuilder;
 import org.glassfish.jersey.client.rx.rxjava.RxObservable;
 import org.glassfish.jersey.client.rx.rxjava.RxObservableInvoker;
 import rx.Observable;
+import scala.Function0;
 
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.WebTarget;
@@ -42,7 +42,6 @@ public class SyncStocks {
             p.load(is);
 
             final File temp = File.createTempFile("stocks", ".json");
-            final BufferedWriter bw = new BufferedWriter(new FileWriter(temp));
 
             final WebTarget stocksAPI = ClientBuilder.newClient().target("http://query.yahooapis.com")
                     .path("v1/public/yql")
@@ -63,19 +62,18 @@ public class SyncStocks {
 
                 Preconditions.checkArgument(r.getStatus() < 300);
                 final String json = r.readEntity(String.class).replaceAll("\"symbol\"","\"symbol_\"");
-                try{ bw.write(json); }catch (Exception e){e.printStackTrace();}
+                try(BufferedWriter bw = new BufferedWriter(new FileWriter(temp))){
+                    bw.write(json);
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
+                process(temp);
 
             },
             e -> {
 
                 e.printStackTrace();
                 System.exit(1);
-            },
-            () -> {
-
-                try { bw.close(); } catch (IOException e) { e.printStackTrace(); }
-                process(temp);
-
             });
 
         } catch (Exception e) {
